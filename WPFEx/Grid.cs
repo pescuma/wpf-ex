@@ -12,7 +12,7 @@ namespace org.pescuma.wpfex
             new HashSet<System.Windows.Controls.Grid>();
 
         public static readonly DependencyProperty ColumnsProperty =
-            DependencyProperty.RegisterAttached("Columns", typeof(string), typeof(Grid),
+            DependencyProperty.RegisterAttached("Columns", typeof (string), typeof (Grid),
                                                 new PropertyMetadata("-", ColumnsPropertyChanged),
                                                 ValidateColumnsProperty);
 
@@ -21,9 +21,10 @@ namespace org.pescuma.wpfex
             element.SetValue(ColumnsProperty, value);
         }
 
+        [AttachedPropertyBrowsableForTypeAttribute(typeof (System.Windows.Controls.Grid))]
         public static string GetColumns(UIElement element)
         {
-            return (string)element.GetValue(ColumnsProperty);
+            return (string) element.GetValue(ColumnsProperty);
         }
 
         private static bool ValidateColumnsProperty(object obj)
@@ -86,9 +87,9 @@ namespace org.pescuma.wpfex
                 return cols;
             }
             else if (IsStar(value))
-                return new[] { value };
+                return new[] {value};
             else if (IsAuto(value))
-                return new[] { value };
+                return new[] {value};
             else
                 return Enumerable.Repeat("Auto", Int32.Parse(value)).ToArray();
         }
@@ -99,7 +100,7 @@ namespace org.pescuma.wpfex
             if (grid == null)
                 throw new ArgumentException("Element must be a Grid");
 
-            string value = (string)args.NewValue;
+            string value = (string) args.NewValue;
             value = value.Trim();
 
             if (value == "-")

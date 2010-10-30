@@ -1,7 +1,7 @@
 ﻿<Window x:Class="WpfAppEx.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ex="clr-namespace:org.pescuma.wpfex;assembly=WPFEx"
+        xmlns:ex="http://schemas.pescuma.org/wpf-ex/2010/xaml"
         Title="MainWindow" Height="350" Width="525">
     <Grid ex:Grid.Columns="Auto,Auto,Auto,*">
         <Label Content="Test 1" />
