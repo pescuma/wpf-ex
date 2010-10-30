@@ -1,6 +1,8 @@
 ﻿using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Windows.Markup;
+using org.pescuma.wpfex;
 
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
@@ -34,3 +36,9 @@ using System.Runtime.InteropServices;
 // [assembly: AssemblyVersion("1.0.*")]
 [assembly: AssemblyVersion("0.1.*")]
 [assembly: AssemblyFileVersion("0.1.*")]
+
+// XML declaration attributes
+[assembly: XmlnsDefinition(Constants.XmlNamespace, "org.pescuma.wpfex")]
+
+[assembly: XmlnsPrefix(Constants.XmlNamespace, "ex")]
+
