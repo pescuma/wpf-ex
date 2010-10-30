@@ -1,0 +1,24 @@
+﻿<Window x:Class="WpfAppEx.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ex="clr-namespace:org.pescuma.wpfex;assembly=WPFEx"
+        Title="MainWindow" Height="350" Width="525">
+    <Grid ex:Grid.Columns="Auto,Auto,Auto,*">
+        <Label Content="Test 1" />
+        <Label Content="Test 2"/>
+        <Label Content="Test 3" />
+        <Label Content="Test 4" />
+        <Label Content="Test 5" />
+        <Label Content="Test 6" Grid.ColumnSpan="2" Grid.RowSpan="2" />
+        <Label Content="Test 7" />
+        <Label Content="Test 8" />
+        <Label Content="Test 9" />
+        <Label Content="Test 10" />
+        <Label Content="Test 11" />
+        <Label Content="Test 12" />
+        <Label Content="Test 13" />
+        <Label Content="Test 14" />
+        <Label Content="Test 15" />
+        <Label Content="Test 16" />
+    </Grid>
+</Window>
