@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ex="http://schemas.pescuma.org/wpf-ex/2010/xaml"
         Title="MainWindow" Height="350" Width="525">
-    <Grid ex:Grid.Columns="Auto,Auto,Auto,*">
+    <Grid ex:Grid.Columns="Auto,Auto,Auto,*" ex:Grid.CellSpacing="20">
         <Label Content="Test 1" />
         <Label Content="Test 2"/>
         <Label Content="Test 3" />
