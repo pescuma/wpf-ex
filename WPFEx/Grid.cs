@@ -81,12 +81,14 @@ namespace org.pescuma.wpfex
 		private static void OnGridInitialized(System.Windows.Controls.Grid grid)
 		{
 			SetChildrenPositions(grid);
+			CreateRowDefinitions(grid);
 			ComputeCellSpacing(grid);
 		}
 
 		private static void OnLayoutUpdated(System.Windows.Controls.Grid grid)
 		{
 			SetChildrenPositions(grid);
+			CreateRowDefinitions(grid);
 			ComputeCellSpacing(grid);
 		}
 
@@ -119,15 +121,12 @@ namespace org.pescuma.wpfex
 				return false;
 
 			string value = (string) obj;
+			value = value.Trim();
 
-			if (value.IndexOf(',') >= 0)
-			{
-				return value.Split(',').All(ValidateColText);
-			}
-			else
-			{
-				return ValidateColText(value);
-			}
+			if (value == "")
+				return false;
+
+			return value.Split(',').All(ValidateColText);
 		}
 
 		private static bool ValidateColText(string str)
@@ -190,17 +189,21 @@ namespace org.pescuma.wpfex
 
 			if (value == null)
 			{
-				if (HasListeners(grid))
+				if (GetRows(grid) == null)
 				{
-					RemoveListeners(grid);
+					if (HasListeners(grid))
+					{
+						RemoveListeners(grid);
 
-					RemoveColumnAndRowsDefinitions(grid);
+						RemoveColumnAndRowsDefinitions(grid);
+					}
 				}
 			}
 			else
 			{
-				CreateColumnDefinitions(grid, SplitCols(value));
+				CreateColumnDefinitions(grid, value);
 				SetChildrenPositions(grid);
+				CreateRowDefinitions(grid);
 
 				AddListeners(grid);
 			}
@@ -220,10 +223,10 @@ namespace org.pescuma.wpfex
 
 		private static void SetChildrenPositions(System.Windows.Controls.Grid grid)
 		{
-			if (GetColumns(grid) == null)
+			if (grid.Children.Count < 1)
 				return;
 
-			if (grid.Children.Count < 1)
+			if (GetColumns(grid) == null)
 				return;
 
 			int numColumns = grid.ColumnDefinitions.Count;
@@ -236,8 +239,11 @@ namespace org.pescuma.wpfex
 			int row = 0;
 			foreach (UIElement child in grid.Children)
 			{
-				System.Windows.Controls.Grid.SetRow(child, row);
-				System.Windows.Controls.Grid.SetColumn(child, col);
+				if (row != System.Windows.Controls.Grid.GetRow(child))
+					System.Windows.Controls.Grid.SetRow(child, row);
+
+				if (col != System.Windows.Controls.Grid.GetColumn(child))
+					System.Windows.Controls.Grid.SetColumn(child, col);
 
 				int rowSpan = System.Windows.Controls.Grid.GetRowSpan(child);
 				int colSpan = System.Windows.Controls.Grid.GetColumnSpan(child);
@@ -262,48 +268,285 @@ namespace org.pescuma.wpfex
 					}
 				}
 			}
-
-			int rowCount = (col == 0 ? row : row + 1);
-			UpdateRowDefinitions(grid, rowCount);
 		}
 
-		private static void UpdateRowDefinitions(System.Windows.Controls.Grid grid, int rowCount)
+		private static void CreateColumnDefinitions(System.Windows.Controls.Grid grid, string cols)
 		{
-			// Add missing
-			for (int i = grid.RowDefinitions.Count; i < rowCount; i++)
-			{
-				RowDefinition def = new RowDefinition();
-				def.Height = new GridLength(1, GridUnitType.Auto);
-
-				grid.RowDefinitions.Add(def);
-			}
+			var colDefs = CreateColumnDefinitions(cols);
 
 			// Remove if has more than needed
-			while (rowCount < grid.RowDefinitions.Count)
+			if (colDefs.Count < grid.ColumnDefinitions.Count)
+				grid.ColumnDefinitions.RemoveRange(colDefs.Count, grid.ColumnDefinitions.Count - colDefs.Count);
+
+			// Merge existing
+			for (int i = 0; i < grid.ColumnDefinitions.Count; i++)
 			{
-				grid.RowDefinitions.RemoveAt(rowCount);
+				var current = grid.ColumnDefinitions[i];
+				var expected = colDefs[i];
+
+				if (current.Width != expected.Width)
+				{
+					grid.ColumnDefinitions.RemoveAt(i);
+					grid.ColumnDefinitions.Insert(i, expected);
+				}
 			}
+
+			// Add missing
+			for (int i = grid.ColumnDefinitions.Count; i < colDefs.Count; i++)
+				grid.ColumnDefinitions.Add(colDefs[i]);
 		}
 
-		private static void CreateColumnDefinitions(System.Windows.Controls.Grid grid, string[] cols)
+		private static List<ColumnDefinition> CreateColumnDefinitions(string cols)
 		{
-			grid.ColumnDefinitions.Clear();
-			foreach (var col in cols)
-			{
-				ColumnDefinition def = new ColumnDefinition();
+			List<ColumnDefinition> result = new List<ColumnDefinition>();
 
-				if (col == "*")
-					def.Width = new GridLength(1, GridUnitType.Star);
-				else if (string.Equals(col, "Auto", StringComparison.CurrentCultureIgnoreCase))
-					def.Width = new GridLength(1, GridUnitType.Auto);
-				else
-					def.Width = new GridLength(Int32.Parse(col), GridUnitType.Pixel);
+			foreach (var col in SplitCols(cols))
+				result.Add(ToColumnDefinition(col.Trim()));
 
-				grid.ColumnDefinitions.Add(def);
-			}
+			return result;
+		}
+
+		private static ColumnDefinition ToColumnDefinition(string col)
+		{
+			ColumnDefinition def = new ColumnDefinition();
+
+			if (col == "*")
+				def.Width = new GridLength(1, GridUnitType.Star);
+			else if (string.Equals(col, "Auto", StringComparison.CurrentCultureIgnoreCase))
+				def.Width = new GridLength(1, GridUnitType.Auto);
+			else
+				def.Width = new GridLength(Int32.Parse(col), GridUnitType.Pixel);
+
+			return def;
 		}
 
 		#endregion
+
+		#region Rows
+
+		private const string DefaultRowStyle = "Auto";
+
+		public static readonly DependencyProperty RowsProperty =
+			DependencyProperty.RegisterAttached("Rows", typeof (string), typeof (Grid),
+			                                    new PropertyMetadata(null, RowsPropertyChanged),
+			                                    ValidateRowsProperty);
+
+		public static void SetRows(UIElement element, string value)
+		{
+			element.SetValue(RowsProperty, value);
+		}
+
+		[AttachedPropertyBrowsableForTypeAttribute(typeof (System.Windows.Controls.Grid))]
+		public static string GetRows(UIElement element)
+		{
+			return (string) element.GetValue(RowsProperty);
+		}
+
+		private static bool ValidateRowsProperty(object obj)
+		{
+			if (obj == null)
+				return true;
+
+			if (!(obj is string))
+				return false;
+
+			string value = (string) obj;
+			value = value.Trim();
+
+			if (value == "")
+				return false;
+
+			bool foundExtension = false;
+			foreach (var block in value.Split(','))
+			{
+				var text = block.Trim();
+				if (text.EndsWith("..."))
+				{
+					if (foundExtension)
+						return false;
+
+					foundExtension = true;
+					text = text.Substring(0, block.Length - 3);
+				}
+
+				if (!ValidateColText(text))
+					return false;
+			}
+
+			return true;
+		}
+
+		private static void RowsPropertyChanged(DependencyObject obj,
+		                                        DependencyPropertyChangedEventArgs args)
+		{
+			System.Windows.Controls.Grid grid = obj as System.Windows.Controls.Grid;
+			if (grid == null)
+				throw new ArgumentException("Element must be a Grid");
+
+			string value = (string) args.NewValue;
+
+			if (value == null)
+			{
+				if (GetColumns(grid) == null)
+				{
+					if (HasListeners(grid))
+					{
+						RemoveListeners(grid);
+
+						RemoveColumnAndRowsDefinitions(grid);
+					}
+				}
+			}
+			else
+			{
+				CreateRowDefinitions(grid);
+
+				AddListeners(grid);
+			}
+		}
+
+		private class RowsConfig
+		{
+			public readonly List<string> Begin = new List<string>();
+			public readonly string Extends;
+			public readonly List<string> End = new List<string>();
+
+			public RowsConfig(string def)
+			{
+				bool foundExtension = false;
+				foreach (var block in def.Split(','))
+				{
+					if (block.EndsWith("..."))
+					{
+						if (foundExtension)
+							throw new InvalidOperationException();
+
+						foundExtension = true;
+						Extends = block.Substring(0, block.Length - 3);
+					}
+					else if (foundExtension)
+					{
+						End.Add(block);
+					}
+					else
+					{
+						Begin.Add(block);
+					}
+				}
+			}
+
+			public int MinRows
+			{
+				get { return Begin.Count + End.Count; }
+			}
+		}
+
+		private static void CreateRowDefinitions(System.Windows.Controls.Grid grid)
+		{
+			if (grid.Children.Count < 1)
+				return;
+
+			string rows = GetRows(grid);
+
+			if (rows == null && GetColumns(grid) == null)
+				return;
+
+			int rowCount = FindRowCount(grid);
+
+			if (rows == null)
+			{
+				// Add missing
+				for (int i = grid.RowDefinitions.Count; i < rowCount; i++)
+					grid.RowDefinitions.Add(ToRowDefinition(DefaultRowStyle));
+
+				// Remove if has more than needed
+				if (rowCount < grid.RowDefinitions.Count)
+					grid.RowDefinitions.RemoveRange(rowCount, grid.RowDefinitions.Count - rowCount);
+			}
+			else
+			{
+				var rowDefs = CreateRowDefinitions(rowCount, rows);
+
+				// Remove if has more than needed
+				if (rowDefs.Count < grid.RowDefinitions.Count)
+					grid.RowDefinitions.RemoveRange(rowDefs.Count, grid.RowDefinitions.Count - rowDefs.Count);
+
+				// Merge existing
+				for (int i = 0; i < grid.RowDefinitions.Count; i++)
+				{
+					var current = grid.RowDefinitions[i];
+					var expected = rowDefs[i];
+
+					if (current.Height != expected.Height)
+					{
+						grid.RowDefinitions.RemoveAt(i);
+						grid.RowDefinitions.Insert(i, expected);
+					}
+				}
+
+				// Add missing
+				for (int i = grid.RowDefinitions.Count; i < rowDefs.Count; i++)
+					grid.RowDefinitions.Add(rowDefs[i]);
+			}
+		}
+
+		private static List<RowDefinition> CreateRowDefinitions(int rowCount, string rows)
+		{
+			List<RowDefinition> result = new List<RowDefinition>();
+
+			RowsConfig cfg = new RowsConfig(rows);
+
+			int extensionLines = Math.Max(0, rowCount - cfg.MinRows);
+			int afterRows = 0;
+			if (cfg.Extends == null)
+			{
+				afterRows = extensionLines;
+				extensionLines = 0;
+			}
+
+			foreach (var row in cfg.Begin)
+				result.Add(ToRowDefinition(row));
+
+			for (int i = 0; i < extensionLines; i++)
+				result.Add(ToRowDefinition(cfg.Extends));
+
+			foreach (var row in cfg.End)
+				result.Add(ToRowDefinition(row));
+
+			for (int i = 0; i < afterRows; i++)
+				result.Add(ToRowDefinition(DefaultRowStyle));
+
+			return result;
+		}
+
+		private static RowDefinition ToRowDefinition(string row)
+		{
+			RowDefinition def = new RowDefinition();
+
+			if (row == "*")
+				def.Height = new GridLength(1, GridUnitType.Star);
+			else if (string.Equals(row, "Auto", StringComparison.CurrentCultureIgnoreCase))
+				def.Height = new GridLength(1, GridUnitType.Auto);
+			else
+				def.Height = new GridLength(Int32.Parse(row), GridUnitType.Pixel);
+
+			return def;
+		}
+
+		private static int FindRowCount(System.Windows.Controls.Grid grid)
+		{
+			int numRows = 0;
+			foreach (UIElement child in grid.Children)
+			{
+				int row = System.Windows.Controls.Grid.GetRow(child);
+				int rowSpan = System.Windows.Controls.Grid.GetRowSpan(child);
+
+				numRows = Math.Max(numRows, row + rowSpan);
+			}
+			return numRows;
+		}
+
+		#endregion Rows
 
 		#region CellSpacing
 
@@ -376,9 +619,9 @@ namespace org.pescuma.wpfex
 				int col = System.Windows.Controls.Grid.GetColumn(el);
 
 				double top = (double) (row > 0 ? spacing : 0);
-				double bottom = 0;
+				const double bottom = 0;
 				double left = (double) (col > 0 ? spacing : 0);
-				double right = 0;
+				const double right = 0;
 
 				el.Margin = new Thickness(left, top, right, bottom);
 			}
