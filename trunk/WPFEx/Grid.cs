@@ -32,64 +32,17 @@ namespace org.pescuma.wpfex
 	{
 		#region Listeners
 
-		private class Listeners
+		private static readonly ListenerManager<System.Windows.Controls.Grid> Listeners =
+			new ListenerManager<System.Windows.Controls.Grid>();
+
+		static Grid()
 		{
-			public EventHandler Initialized;
-			public EventHandler LayoutUpdated;
-			public RoutedEventHandler Unloaded;
-		}
-
-		private static readonly Dictionary<System.Windows.Controls.Grid, Listeners> GridsListening =
-			new Dictionary<System.Windows.Controls.Grid, Listeners>();
-
-		private static void AddListeners(System.Windows.Controls.Grid grid)
-		{
-			if (HasListeners(grid))
-				return;
-
-			Listeners l = new Listeners();
-			l.Initialized = delegate { OnGridInitialized(grid); };
-			l.LayoutUpdated = delegate { OnLayoutUpdated(grid); };
-			l.Unloaded = delegate { RemoveListeners(grid); };
-
-			grid.Initialized += l.Initialized;
-			grid.LayoutUpdated += l.LayoutUpdated;
-			grid.Unloaded += l.Unloaded;
-
-			GridsListening.Add(grid, l);
-		}
-
-		private static void RemoveListeners(System.Windows.Controls.Grid grid)
-		{
-			if (!HasListeners(grid))
-				return;
-
-			Listeners l = GridsListening[grid];
-
-			grid.Initialized -= l.Initialized;
-			grid.LayoutUpdated -= l.LayoutUpdated;
-			grid.Unloaded -= l.Unloaded;
-
-			GridsListening.Remove(grid);
-		}
-
-		private static bool HasListeners(System.Windows.Controls.Grid grid)
-		{
-			return GridsListening.ContainsKey(grid);
-		}
-
-		private static void OnGridInitialized(System.Windows.Controls.Grid grid)
-		{
-			SetChildrenPositions(grid);
-			CreateRowDefinitions(grid);
-			ComputeCellSpacing(grid);
-		}
-
-		private static void OnLayoutUpdated(System.Windows.Controls.Grid grid)
-		{
-			SetChildrenPositions(grid);
-			CreateRowDefinitions(grid);
-			ComputeCellSpacing(grid);
+			Listeners.LayoutUpdated += grid =>
+			                           	{
+			                           		SetChildrenPositions(grid);
+			                           		CreateRowDefinitions(grid);
+			                           		ComputeCellSpacing(grid);
+			                           	};
 		}
 
 		#endregion
@@ -191,9 +144,9 @@ namespace org.pescuma.wpfex
 			{
 				if (GetRows(grid) == null)
 				{
-					if (HasListeners(grid))
+					if (Listeners.IsListeningTo(grid))
 					{
-						RemoveListeners(grid);
+						Listeners.RemoveFrom(grid);
 
 						RemoveColumnAndRowsDefinitions(grid);
 					}
@@ -205,7 +158,7 @@ namespace org.pescuma.wpfex
 				SetChildrenPositions(grid);
 				CreateRowDefinitions(grid);
 
-				AddListeners(grid);
+				Listeners.AddTo(grid);
 			}
 		}
 
@@ -389,9 +342,9 @@ namespace org.pescuma.wpfex
 			{
 				if (GetColumns(grid) == null)
 				{
-					if (HasListeners(grid))
+					if (Listeners.IsListeningTo(grid))
 					{
-						RemoveListeners(grid);
+						Listeners.RemoveFrom(grid);
 
 						RemoveColumnAndRowsDefinitions(grid);
 					}
@@ -401,7 +354,7 @@ namespace org.pescuma.wpfex
 			{
 				CreateRowDefinitions(grid);
 
-				AddListeners(grid);
+				Listeners.AddTo(grid);
 			}
 		}
 
@@ -586,9 +539,9 @@ namespace org.pescuma.wpfex
 
 			if (args.NewValue == null)
 			{
-				if (HasListeners(grid))
+				if (Listeners.IsListeningTo(grid))
 				{
-					RemoveListeners(grid);
+					Listeners.RemoveFrom(grid);
 
 					RemoveCellSpacing(grid);
 				}
@@ -597,12 +550,15 @@ namespace org.pescuma.wpfex
 			{
 				ComputeCellSpacing(grid);
 
-				AddListeners(grid);
+				Listeners.AddTo(grid);
 			}
 		}
 
 		private static void ComputeCellSpacing(System.Windows.Controls.Grid grid)
 		{
+			if (grid.Children.Count < 1)
+				return;
+
 			int? spacing = GetCellSpacing(grid);
 			if (spacing == null || spacing < 0)
 				return;
