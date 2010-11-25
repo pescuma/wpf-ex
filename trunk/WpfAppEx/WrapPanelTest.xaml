@@ -6,16 +6,16 @@
              xmlns:ex="http://schemas.pescuma.org/wpf-ex/2010/xaml"
              mc:Ignorable="d"
              d:DesignHeight="239" d:DesignWidth="588">
-    <WrapPanel ex:WrapPanel.CellSpacing="10" Orientation="Horizontal">
+    <WrapPanel ex:WrapPanel.CellSpacing="10" ex:WrapPanel.Justify="True" Orientation="Horizontal">
         <Button Width="170" Content="B1" />
-        <Button Width="170" Content="B2" />
-        <Button Width="170" Content="B3" />
-        <Button Width="170" Content="B4" />
-        <Button Width="170" Content="B5" />
-        <Button Width="170" Content="B6" />
-        <Button Width="170" Content="B7" />
-        <Button Width="170" Content="B8" />
-        <Button Width="170" Content="B9" />
+        <Button Width="100" Content="B2" />
+        <Button Width="190" Content="B3" />
+        <Button Width="100" Content="B4" />
+        <Button Width="190" Content="B5" />
+        <Button Width="150" Content="B6" />
+        <Button Width="130" Content="B7" />
+        <Button Width="10" Content="B8" />
+        <Button Width="190" Content="B9" />
         <Button Width="170" Content="B10" />
     </WrapPanel>
 </UserControl>
