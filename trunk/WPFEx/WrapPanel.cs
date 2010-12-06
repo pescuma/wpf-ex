@@ -363,6 +363,8 @@ namespace org.pescuma.wpfex
 				}
 				else if (x + spacing + elWidth > width)
 				{
+					// Move it to next line
+
 					var leftOver = width - x;
 					if (leftOver >= elWidth)
 					{
@@ -425,8 +427,10 @@ namespace org.pescuma.wpfex
 
 		private static void SetMargin(FrameworkElement el, Thickness margin)
 		{
-			if (el.Margin.Left == margin.Left && el.Margin.Top == margin.Top
-			    && el.Margin.Right == margin.Right && el.Margin.Bottom == margin.Bottom)
+			if (DoubleHelper.AreEqual(el.Margin.Left, margin.Left)
+			    && DoubleHelper.AreEqual(el.Margin.Top, margin.Top)
+			    && DoubleHelper.AreEqual(el.Margin.Right, margin.Right)
+			    && DoubleHelper.AreEqual(el.Margin.Bottom, margin.Bottom))
 				return;
 
 			el.Margin = margin;
