@@ -49,6 +49,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Constants.cs" />
+    <Compile Include="DoubleHelper.cs" />
     <Compile Include="ListenerManager.cs" />
     <Compile Include="WrapPanel.cs" />
     <Compile Include="Grid.cs" />
