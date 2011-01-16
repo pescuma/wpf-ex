@@ -22,7 +22,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -49,6 +51,8 @@ namespace org.pescuma.wpfex
 
 		#region Columns
 
+		private const string DefaultColumnStyle = "Auto";
+
 		public static readonly DependencyProperty ColumnsProperty =
 			DependencyProperty.RegisterAttached("Columns", typeof (string), typeof (Grid),
 			                                    new PropertyMetadata(null, ColumnsPropertyChanged),
@@ -64,6 +68,13 @@ namespace org.pescuma.wpfex
 		{
 			return (string) element.GetValue(ColumnsProperty);
 		}
+
+		private static readonly string DoubleRE = @"[0-9]*(\.[0-9]*)?";
+
+		private static readonly Regex RangeRE =
+			new Regex(@"\|\s*(" + DoubleRE + @")?\s*:\s*(" + DoubleRE + @")?$");
+
+		private static readonly Regex StarRE = new Regex(@"^" + DoubleRE + @"\*$");
 
 		private static bool ValidateColumnsProperty(object obj)
 		{
@@ -86,6 +97,10 @@ namespace org.pescuma.wpfex
 		{
 			str = str.Trim();
 
+			var m = RangeRE.Match(str);
+			if (m.Success)
+				str = str.Substring(0, m.Index).Trim();
+
 			if (IsStar(str))
 				return true;
 			if (IsAuto(str))
@@ -104,12 +119,47 @@ namespace org.pescuma.wpfex
 
 		private static bool IsAuto(string str)
 		{
-			return string.Equals(str, "Auto", StringComparison.CurrentCultureIgnoreCase);
+			return string.Equals(str, "Auto", StringComparison.InvariantCultureIgnoreCase);
 		}
 
 		private static bool IsStar(string str)
 		{
-			return str == "*";
+			return StarRE.IsMatch(str);
+		}
+
+		private class Range
+		{
+			public double? Min;
+			public double? Max;
+		}
+
+		private static GridLength ToGridLength(string str, out Range range)
+		{
+			str = str.Trim();
+
+			range = new Range();
+			range.Min = null;
+			range.Max = null;
+
+			var m = RangeRE.Match(str);
+			if (m.Success)
+			{
+				var min = m.Groups[1].ToString().Trim();
+				if (min != "")
+					range.Min = Convert.ToDouble(min, CultureInfo.InvariantCulture);
+
+				var max = m.Groups[3].ToString().Trim();
+				if (max != "")
+					range.Max = Convert.ToDouble(max, CultureInfo.InvariantCulture);
+
+				str = str.Substring(0, m.Index).Trim();
+			}
+
+			var ret = new GridLengthConverter().ConvertFrom(null, CultureInfo.InvariantCulture, str);
+			if (ret == null)
+				throw new ArgumentException();
+
+			return (GridLength) ret;
 		}
 
 		private static string[] SplitCols(string value)
@@ -140,21 +190,18 @@ namespace org.pescuma.wpfex
 
 			string value = (string) args.NewValue;
 
-			if (value == null)
+			if (value == null && GetRows(grid) == null)
 			{
-				if (GetRows(grid) == null)
+				if (Listeners.IsListeningTo(grid))
 				{
-					if (Listeners.IsListeningTo(grid))
-					{
-						Listeners.RemoveFrom(grid);
+					Listeners.RemoveFrom(grid);
 
-						RemoveColumnAndRowsDefinitions(grid);
-					}
+					RemoveColumnAndRowsDefinitions(grid);
 				}
 			}
 			else
 			{
-				CreateColumnDefinitions(grid, value);
+				CreateColumnDefinitions(grid, value ?? DefaultColumnStyle);
 				SetChildrenPositions(grid);
 				CreateRowDefinitions(grid);
 
@@ -179,7 +226,7 @@ namespace org.pescuma.wpfex
 			if (grid.Children.Count < 1)
 				return;
 
-			if (GetColumns(grid) == null)
+			if (GetColumns(grid) == null && GetRows(grid) == null)
 				return;
 
 			int numColumns = grid.ColumnDefinitions.Count;
@@ -225,7 +272,7 @@ namespace org.pescuma.wpfex
 
 		private static void CreateColumnDefinitions(System.Windows.Controls.Grid grid, string cols)
 		{
-			var colDefs = CreateColumnDefinitions(cols);
+			var colDefs = CreateColumnDefinitions(cols, GetCellSpacing(grid));
 
 			// Remove if has more than needed
 			if (colDefs.Count < grid.ColumnDefinitions.Count)
@@ -237,11 +284,9 @@ namespace org.pescuma.wpfex
 				var current = grid.ColumnDefinitions[i];
 				var expected = colDefs[i];
 
-				if (current.Width != expected.Width)
-				{
-					grid.ColumnDefinitions.RemoveAt(i);
-					grid.ColumnDefinitions.Insert(i, expected);
-				}
+				current.Width = expected.Width;
+				current.MinWidth = expected.MinWidth;
+				current.MaxWidth = expected.MaxWidth;
 			}
 
 			// Add missing
@@ -249,26 +294,28 @@ namespace org.pescuma.wpfex
 				grid.ColumnDefinitions.Add(colDefs[i]);
 		}
 
-		private static List<ColumnDefinition> CreateColumnDefinitions(string cols)
+		private static List<ColumnDefinition> CreateColumnDefinitions(string cols, int? cellSpacing)
 		{
 			List<ColumnDefinition> result = new List<ColumnDefinition>();
 
 			foreach (var col in SplitCols(cols))
-				result.Add(ToColumnDefinition(col.Trim()));
+				result.Add(ToColumnDefinition(col, result.Count > 0 ? cellSpacing : 0));
 
 			return result;
 		}
 
-		private static ColumnDefinition ToColumnDefinition(string col)
+		private static ColumnDefinition ToColumnDefinition(string col, int? cellSpacing)
 		{
 			ColumnDefinition def = new ColumnDefinition();
 
-			if (col == "*")
-				def.Width = new GridLength(1, GridUnitType.Star);
-			else if (string.Equals(col, "Auto", StringComparison.CurrentCultureIgnoreCase))
-				def.Width = new GridLength(1, GridUnitType.Auto);
-			else
-				def.Width = new GridLength(Int32.Parse(col), GridUnitType.Pixel);
+			Range range;
+
+			def.Width = ToGridLength(col, out range);
+
+			if (range.Min != null)
+				def.MinWidth = (double) range.Min + (cellSpacing ?? 0);
+			if (range.Max != null)
+				def.MaxWidth = (double) range.Max + (cellSpacing ?? 0);
 
 			return def;
 		}
@@ -319,7 +366,7 @@ namespace org.pescuma.wpfex
 						return false;
 
 					foundExtension = true;
-					text = text.Substring(0, block.Length - 3);
+					text = text.Substring(0, block.Length - 3).Trim();
 				}
 
 				if (!ValidateColText(text))
@@ -337,21 +384,25 @@ namespace org.pescuma.wpfex
 				throw new ArgumentException("Element must be a Grid");
 
 			string value = (string) args.NewValue;
+			var columns = GetColumns(grid);
 
-			if (value == null)
+			if (value == null && columns == null)
 			{
-				if (GetColumns(grid) == null)
+				if (Listeners.IsListeningTo(grid))
 				{
-					if (Listeners.IsListeningTo(grid))
-					{
-						Listeners.RemoveFrom(grid);
+					Listeners.RemoveFrom(grid);
 
-						RemoveColumnAndRowsDefinitions(grid);
-					}
+					RemoveColumnAndRowsDefinitions(grid);
 				}
 			}
 			else
 			{
+				if (columns == null)
+				{
+					CreateColumnDefinitions(grid, DefaultColumnStyle);
+					SetChildrenPositions(grid);
+				}
+
 				CreateRowDefinitions(grid);
 
 				Listeners.AddTo(grid);
@@ -375,7 +426,7 @@ namespace org.pescuma.wpfex
 							throw new InvalidOperationException();
 
 						foundExtension = true;
-						Extends = block.Substring(0, block.Length - 3);
+						Extends = block.Substring(0, block.Length - 3).Trim();
 					}
 					else if (foundExtension)
 					{
@@ -410,7 +461,7 @@ namespace org.pescuma.wpfex
 			{
 				// Add missing
 				for (int i = grid.RowDefinitions.Count; i < rowCount; i++)
-					grid.RowDefinitions.Add(ToRowDefinition(DefaultRowStyle));
+					grid.RowDefinitions.Add(ToRowDefinition(DefaultRowStyle, i > 0 ? GetCellSpacing(grid) : 0));
 
 				// Remove if has more than needed
 				if (rowCount < grid.RowDefinitions.Count)
@@ -418,7 +469,7 @@ namespace org.pescuma.wpfex
 			}
 			else
 			{
-				var rowDefs = CreateRowDefinitions(rowCount, rows);
+				var rowDefs = CreateRowDefinitions(rowCount, rows, GetCellSpacing(grid));
 
 				// Remove if has more than needed
 				if (rowDefs.Count < grid.RowDefinitions.Count)
@@ -430,11 +481,9 @@ namespace org.pescuma.wpfex
 					var current = grid.RowDefinitions[i];
 					var expected = rowDefs[i];
 
-					if (current.Height != expected.Height)
-					{
-						grid.RowDefinitions.RemoveAt(i);
-						grid.RowDefinitions.Insert(i, expected);
-					}
+					current.Height = expected.Height;
+					current.MinHeight = expected.MinHeight;
+					current.MaxHeight = expected.MaxHeight;
 				}
 
 				// Add missing
@@ -443,7 +492,8 @@ namespace org.pescuma.wpfex
 			}
 		}
 
-		private static List<RowDefinition> CreateRowDefinitions(int rowCount, string rows)
+		private static List<RowDefinition> CreateRowDefinitions(int rowCount, string rows,
+		                                                        int? cellSpacing)
 		{
 			List<RowDefinition> result = new List<RowDefinition>();
 
@@ -458,30 +508,32 @@ namespace org.pescuma.wpfex
 			}
 
 			foreach (var row in cfg.Begin)
-				result.Add(ToRowDefinition(row));
+				result.Add(ToRowDefinition(row, result.Count > 0 ? cellSpacing : 0));
 
 			for (int i = 0; i < extensionLines; i++)
-				result.Add(ToRowDefinition(cfg.Extends));
+				result.Add(ToRowDefinition(cfg.Extends, result.Count > 0 ? cellSpacing : 0));
 
 			foreach (var row in cfg.End)
-				result.Add(ToRowDefinition(row));
+				result.Add(ToRowDefinition(row, result.Count > 0 ? cellSpacing : 0));
 
 			for (int i = 0; i < afterRows; i++)
-				result.Add(ToRowDefinition(DefaultRowStyle));
+				result.Add(ToRowDefinition(DefaultRowStyle, result.Count > 0 ? cellSpacing : 0));
 
 			return result;
 		}
 
-		private static RowDefinition ToRowDefinition(string row)
+		private static RowDefinition ToRowDefinition(string row, int? cellSpacing)
 		{
 			RowDefinition def = new RowDefinition();
 
-			if (row == "*")
-				def.Height = new GridLength(1, GridUnitType.Star);
-			else if (string.Equals(row, "Auto", StringComparison.CurrentCultureIgnoreCase))
-				def.Height = new GridLength(1, GridUnitType.Auto);
-			else
-				def.Height = new GridLength(Int32.Parse(row), GridUnitType.Pixel);
+			Range range;
+			def.Height = ToGridLength(row, out range);
+
+			if (range.Min != null)
+				def.MinHeight = (double) range.Min + (cellSpacing ?? 0);
+
+			if (range.Max != null)
+				def.MaxHeight = (double) range.Max + (cellSpacing ?? 0);
 
 			return def;
 		}
@@ -551,6 +603,13 @@ namespace org.pescuma.wpfex
 				ComputeCellSpacing(grid);
 
 				Listeners.AddTo(grid);
+			}
+
+			var columns = GetColumns(grid);
+			if (columns != null || GetRows(grid) != null)
+			{
+				CreateColumnDefinitions(grid, columns ?? DefaultColumnStyle);
+				CreateRowDefinitions(grid);
 			}
 		}
 
