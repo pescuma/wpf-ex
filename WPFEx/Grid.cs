@@ -481,9 +481,14 @@ namespace org.pescuma.wpfex
 					var current = grid.RowDefinitions[i];
 					var expected = rowDefs[i];
 
-					current.Height = expected.Height;
-					current.MinHeight = expected.MinHeight;
-					current.MaxHeight = expected.MaxHeight;
+					if (expected.Height != current.Height)
+						current.Height = expected.Height;
+
+					if (expected.MinHeight != current.MinHeight)
+						current.MinHeight = expected.MinHeight;
+
+					if (expected.MaxHeight != current.MaxHeight)
+						current.MaxHeight = expected.MaxHeight;
 				}
 
 				// Add missing

@@ -55,9 +55,23 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="HorizontalGridSplitterTest.xaml.cs">
+      <DependentUpon>HorizontalGridSplitterTest.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="VerticalGridSplitterTest.xaml.cs">
+      <DependentUpon>VerticalGridSplitterTest.xaml</DependentUpon>
+    </Compile>
     <Compile Include="WrapPanelTest.xaml.cs">
       <DependentUpon>WrapPanelTest.xaml</DependentUpon>
     </Compile>
+    <Page Include="HorizontalGridSplitterTest.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="VerticalGridSplitterTest.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
