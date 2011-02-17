@@ -47,13 +47,13 @@ namespace org.pescuma.wpfex
 				return;
 
 			Listeners l = new Listeners();
-			l.Initialized = delegate
+			l.Initialized = (s, e) =>
 			                	{
 			                		FireInitialized(control);
 			                		FireLayoutUpdated(control);
 			                	};
-			l.LayoutUpdated = delegate { FireLayoutUpdated(control); };
-			l.Unloaded = delegate { RemoveFrom(control); };
+			l.LayoutUpdated = (s, e) => { FireLayoutUpdated(control); };
+			l.Unloaded = (s, e) => { RemoveFrom(control); };
 
 			control.Initialized += l.Initialized;
 			control.LayoutUpdated += l.LayoutUpdated;
